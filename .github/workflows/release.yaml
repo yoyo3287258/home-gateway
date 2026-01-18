@@ -1,0 +1,174 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+  pull_request:
+    branches:
+      - main
+
+env:
+  GO_VERSION: '1.22'
+
+jobs:
+  test:
+    name: 娴嬭瘯
+    runs-on: ubuntu-latest
+    steps:
+      - name: 妫€鍑轰唬鐮?
+        uses: actions/checkout@v4
+
+      - name: 璁剧疆 Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: 涓嬭浇渚濊禆
+        run: go mod download
+
+      - name: 杩愯娴嬭瘯
+        env:
+          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+          LLM_BASE_URL: ${{ secrets.LLM_BASE_URL }}
+        run: go test -v -race -coverprofile=coverage.out ./...
+
+      - name: 涓婁紶瑕嗙洊鐜囨姤鍛?
+        uses: codecov/codecov-action@v4
+        with:
+          file: coverage.out
+        continue-on-error: true
+
+  build:
+    name: 鏋勫缓
+    needs: test
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - goos: linux
+            goarch: arm64
+            suffix: ''
+          - goos: linux
+            goarch: amd64
+            suffix: ''
+          - goos: windows
+            goarch: amd64
+            suffix: '.exe'
+          - goos: darwin
+            goarch: arm64
+            suffix: ''
+          - goos: darwin
+            goarch: amd64
+            suffix: ''
+    
+    steps:
+      - name: 妫€鍑轰唬鐮?
+        uses: actions/checkout@v4
+
+      - name: 璁剧疆 Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+
+      - name: 鑾峰彇鐗堟湰淇℃伅
+        id: version
+        run: |
+          if [[ "${{ github.ref }}" == refs/tags/* ]]; then
+            echo "VERSION=${{ github.ref_name }}" >> $GITHUB_OUTPUT
+          else
+            echo "VERSION=dev-$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+          fi
+          echo "BUILD_TIME=$(date -u '+%Y-%m-%d_%H:%M:%S')" >> $GITHUB_OUTPUT
+          echo "GIT_COMMIT=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+
+      - name: 鏋勫缓
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: 0
+        run: |
+          go build -trimpath \
+            -ldflags "-s -w \
+              -X main.Version=${{ steps.version.outputs.VERSION }} \
+              -X main.BuildTime=${{ steps.version.outputs.BUILD_TIME }} \
+              -X main.GitCommit=${{ steps.version.outputs.GIT_COMMIT }}" \
+            -o home-gateway-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.suffix }} \
+            ./cmd/gateway
+
+      - name: 涓婁紶鏋勫缓浜х墿
+        uses: actions/upload-artifact@v4
+        with:
+          name: home-gateway-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: home-gateway-${{ matrix.goos }}-${{ matrix.goarch }}${{ matrix.suffix }}
+
+  release:
+    name: 鍙戝竷
+    needs: build
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    
+    steps:
+      - name: 妫€鍑轰唬鐮?
+        uses: actions/checkout@v4
+
+      - name: 涓嬭浇鎵€鏈夋瀯寤轰骇鐗?
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: 鏁寸悊鏂囦欢
+        run: |
+          mkdir -p release
+          find artifacts -type f -name 'home-gateway-*' -exec mv {} release/ \;
+          ls -la release/
+
+      - name: 鍒涘缓閰嶇疆绀轰緥鍘嬬缉鍖?
+        run: |
+          tar -czvf release/configs-example.tar.gz configs/
+
+      - name: 鐢熸垚 Changelog
+        id: changelog
+        run: |
+          echo "## 鏇存柊鍐呭" > CHANGELOG.md
+          echo "" >> CHANGELOG.md
+          echo "### 涓嬭浇璇存槑" >> CHANGELOG.md
+          echo "- **Rock 5B / ARM64 Linux**: \`home-gateway-linux-arm64\`" >> CHANGELOG.md
+          echo "- **x86_64 Linux**: \`home-gateway-linux-amd64\`" >> CHANGELOG.md
+          echo "- **Windows**: \`home-gateway-windows-amd64.exe\`" >> CHANGELOG.md
+          echo "- **macOS (Apple Silicon)**: \`home-gateway-darwin-arm64\`" >> CHANGELOG.md
+          echo "- **macOS (Intel)**: \`home-gateway-darwin-amd64\`" >> CHANGELOG.md
+          echo "" >> CHANGELOG.md
+          echo "### 蹇€熷紑濮? >> CHANGELOG.md
+          echo "\`\`\`bash" >> CHANGELOG.md
+          echo "# 涓嬭浇 (浠?ARM64 Linux 涓轰緥)" >> CHANGELOG.md
+          echo "wget https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/home-gateway-linux-arm64" >> CHANGELOG.md
+          echo "chmod +x home-gateway-linux-arm64" >> CHANGELOG.md
+          echo "" >> CHANGELOG.md
+          echo "# 涓嬭浇閰嶇疆鏂囦欢" >> CHANGELOG.md
+          echo "wget https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/configs-example.tar.gz" >> CHANGELOG.md
+          echo "tar -xzf configs-example.tar.gz" >> CHANGELOG.md
+          echo "" >> CHANGELOG.md
+          echo "# 缂栬緫閰嶇疆鏂囦欢" >> CHANGELOG.md
+          echo "nano configs/config.yaml" >> CHANGELOG.md
+          echo "" >> CHANGELOG.md
+          echo "# 杩愯" >> CHANGELOG.md
+          echo "./home-gateway-linux-arm64" >> CHANGELOG.md
+          echo "\`\`\`" >> CHANGELOG.md
+          echo "" >> CHANGELOG.md
+          echo "### 鑷洿鏂? >> CHANGELOG.md
+          echo "\`\`\`bash" >> CHANGELOG.md
+          echo "./home-gateway-linux-arm64 -U" >> CHANGELOG.md
+          echo "\`\`\`" >> CHANGELOG.md
+
+      - name: 鍒涘缓 Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: release/*
+          body_path: CHANGELOG.md
+          draft: false
+          prerelease: ${{ contains(github.ref, 'alpha') || contains(github.ref, 'beta') || contains(github.ref, 'rc') }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

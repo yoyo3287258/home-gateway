@@ -1,0 +1,93 @@
+# 鐏厜鎺у埗澶勭悊鍣ㄧ粍
+# 鍖呭惈鍚勫搧鐗岀殑鐏厜鎺у埗澶勭悊鍣?
+
+processors:
+  # 閫氱敤鐏厜鎺у埗锛堟湰鍦?鑷畾涔夊崗璁級
+  - id: "light_generic"
+    name: "閫氱敤鐏厜鎺у埗"
+    group: "lighting"
+    description: "鎺у埗瀹朵腑鍚勬埧闂寸殑鐏厜锛屽寘鎷紑鍏冲拰浜害璋冭妭銆傛敮鎸佸鍘呫€佸崸瀹ゃ€佸帹鎴裤€佸崼鐢熼棿銆佷功鎴跨瓑鎴块棿銆?
+    keywords:
+      - "鐏?
+      - "鐏厜"
+      - "寮€鐏?
+      - "鍏崇伅"
+      - "浜害"
+      - "鐓ф槑"
+    parameters:
+      - name: "room"
+        type: "string"
+        required: true
+        description: "鎴块棿鍚嶇О锛屽锛氬鍘呫€佸崸瀹ゃ€佷富鍗с€佹鍗с€佸帹鎴裤€佸崼鐢熼棿銆佷功鎴裤€侀槼鍙?
+      - name: "action"
+        type: "enum"
+        required: true
+        values: ["on", "off", "dim", "brighten"]
+        description: "鎿嶄綔绫诲瀷锛歰n-寮€鐏紝off-鍏崇伅锛宒im-璋冩殫锛宐righten-璋冧寒"
+      - name: "brightness"
+        type: "int"
+        required: false
+        range: [0, 100]
+        description: "浜害鐧惧垎姣旓紙0-100锛夛紝浠呭綋闇€瑕佽缃叿浣撲寒搴︽椂浣跨敤"
+    enabled: true
+
+  # 灏忕背鐏厜鎺у埗
+  - id: "light_xiaomi"
+    name: "灏忕背鏅鸿兘鐏?
+    group: "lighting"
+    description: "鎺у埗灏忕背/绫冲鍝佺墝鐨勬櫤鑳界伅鍏凤紝鍖呮嫭Yeelight绯诲垪"
+    keywords:
+      - "灏忕背鐏?
+      - "绫冲鐏?
+      - "yeelight"
+      - "灏忕背鍙扮伅"
+    parameters:
+      - name: "device_id"
+        type: "string"
+        required: false
+        description: "璁惧ID锛屼笉鎸囧畾鍒欐帶鍒舵墍鏈夊皬绫崇伅"
+      - name: "room"
+        type: "string"
+        required: false
+        description: "鎴块棿鍚嶇О"
+      - name: "action"
+        type: "enum"
+        required: true
+        values: ["on", "off", "set_brightness", "set_color_temp"]
+        description: "鎿嶄綔绫诲瀷"
+      - name: "brightness"
+        type: "int"
+        required: false
+        range: [1, 100]
+      - name: "color_temp"
+        type: "int"
+        required: false
+        range: [2700, 6500]
+        description: "鑹叉俯锛圞锛夛紝2700涓烘殩鍏夛紝6500涓哄喎鍏?
+    enabled: true
+
+  # 鍗庝负鏅鸿兘鐏?
+  - id: "light_huawei"
+    name: "鍗庝负鏅鸿兘鐏?
+    group: "lighting"
+    description: "鎺у埗鍗庝负鏅烘収鐢熸椿骞冲彴鐨勬櫤鑳界伅鍏?
+    keywords:
+      - "鍗庝负鐏?
+      - "鍗庝负鏅烘収"
+    parameters:
+      - name: "device_name"
+        type: "string"
+        required: false
+        description: "璁惧鍚嶇О"
+      - name: "room"
+        type: "string"
+        required: false
+      - name: "action"
+        type: "enum"
+        required: true
+        values: ["on", "off", "set_brightness"]
+      - name: "brightness"
+        type: "int"
+        required: false
+        range: [1, 100]
+    enabled: true

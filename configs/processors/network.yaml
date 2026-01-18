@@ -1,0 +1,115 @@
+# 绉戝涓婄綉澶勭悊鍣ㄧ粍
+# 鍖呭惈鏈哄満璁㈤槄銆佷唬鐞嗛厤缃瓑鐩稿叧澶勭悊
+
+processors:
+  # 鏈哄満璁㈤槄鏇存柊
+  - id: "proxy_subscription_update"
+    name: "鏈哄満璁㈤槄鏇存柊"
+    group: "network"
+    description: "鏇存柊鏈哄満璁㈤槄锛岃幏鍙栨渶鏂扮殑浠ｇ悊鑺傜偣鍒楄〃"
+    keywords:
+      - "璁㈤槄"
+      - "鏇存柊璁㈤槄"
+      - "鏈哄満"
+      - "鑺傜偣"
+      - "浠ｇ悊鏇存柊"
+    parameters:
+      - name: "subscription_name"
+        type: "string"
+        required: false
+        description: "璁㈤槄鍚嶇О锛屼笉鎸囧畾鍒欐洿鏂版墍鏈夎闃?
+      - name: "force"
+        type: "bool"
+        required: false
+        default: false
+        description: "鏄惁寮哄埗鏇存柊锛堝拷鐣ョ紦瀛橈級"
+    enabled: true
+
+  # Sing-box閰嶇疆鐢熸垚
+  - id: "singbox_config_generate"
+    name: "Sing-box閰嶇疆鐢熸垚"
+    group: "network"
+    description: "鏍规嵁璁㈤槄鐢熸垚sing-box閰嶇疆鏂囦欢"
+    keywords:
+      - "singbox"
+      - "sing-box"
+      - "鐢熸垚閰嶇疆"
+      - "閰嶇疆鐢熸垚"
+    parameters:
+      - name: "template"
+        type: "string"
+        required: false
+        description: "閰嶇疆妯℃澘鍚嶇О"
+      - name: "output"
+        type: "string"
+        required: false
+        description: "杈撳嚭鏂囦欢璺緞"
+    enabled: true
+
+  # Sing-box閰嶇疆鍒囨崲
+  - id: "singbox_config_switch"
+    name: "Sing-box閰嶇疆鍒囨崲"
+    group: "network"
+    description: "鍒囨崲sing-box浣跨敤鐨勯厤缃枃浠舵垨浠ｇ悊鑺傜偣"
+    keywords:
+      - "鍒囨崲鑺傜偣"
+      - "鎹㈣妭鐐?
+      - "鍒囨崲閰嶇疆"
+      - "鍒囨崲浠ｇ悊"
+    parameters:
+      - name: "config_name"
+        type: "string"
+        required: false
+        description: "閰嶇疆鏂囦欢鍚嶇О"
+      - name: "node_name"
+        type: "string"
+        required: false
+        description: "鑺傜偣鍚嶇О鎴栧叧閿瘝"
+      - name: "mode"
+        type: "enum"
+        required: false
+        values: ["global", "rule", "direct"]
+        description: "浠ｇ悊妯″紡"
+    enabled: true
+
+  # MosDNS瑙勫垯鏇存柊
+  - id: "mosdns_rules_update"
+    name: "MosDNS瑙勫垯鏇存柊"
+    group: "network"
+    description: "涓嬭浇鏇存柊MosDNS鐨凞NS瑙勫垯鍒楄〃"
+    keywords:
+      - "mosdns"
+      - "dns"
+      - "瑙勫垯鏇存柊"
+      - "dns鍒楄〃"
+    parameters:
+      - name: "rule_type"
+        type: "enum"
+        required: false
+        values: ["geosite", "geoip", "all"]
+        default: "all"
+        description: "瑙勫垯绫诲瀷"
+      - name: "source"
+        type: "string"
+        required: false
+        description: "瑙勫垯婧愬湴鍧€"
+    enabled: true
+
+  # 缃戠粶鐘舵€佹鏌?
+  - id: "network_status_check"
+    name: "缃戠粶鐘舵€佹鏌?
+    group: "network"
+    description: "妫€鏌ュ綋鍓嶇綉缁滆繛鎺ョ姸鎬侊紝鍖呮嫭浠ｇ悊鐘舵€併€佸欢杩熺瓑"
+    keywords:
+      - "缃戠粶鐘舵€?
+      - "妫€鏌ョ綉缁?
+      - "寤惰繜"
+      - "杩為€氭€?
+    parameters:
+      - name: "target"
+        type: "enum"
+        required: false
+        values: ["all", "proxy", "direct", "dns"]
+        default: "all"
+        description: "妫€鏌ョ洰鏍?
+    enabled: true

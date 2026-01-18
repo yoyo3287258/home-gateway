@@ -1,0 +1,82 @@
+# 鏈嶅姟鍣ㄩ厤缃?
+server:
+  host: "0.0.0.0"
+  port: 8080
+  read_timeout: 30s
+  write_timeout: 30s
+
+# 瀹夊叏閰嶇疆
+security:
+  # API璁块棶浠ょ墝锛岀敤浜嶩TTP鎺ュ彛璁よ瘉
+  # 瀹㈡埛绔渶瑕佸湪璇锋眰澶翠腑鎼哄甫 Authorization: Bearer <token>
+  # 鐣欑┖鍒欎笉鍚敤璁よ瘉锛堜笉瀹夊叏锛屼粎鐢ㄤ簬寮€鍙戞祴璇曪級
+  api_token: "${API_TOKEN}"
+  
+  # IP鐧藉悕鍗曪紝涓虹┖鍒欎笉闄愬埗
+  # 鏀寔鍗曚釜IP鍜孋IDR鏍煎紡
+  ip_whitelist:
+    # - "192.168.1.0/24"   # 瀹跺涵灞€鍩熺綉
+    # - "10.0.0.1"         # 鐗瑰畾IP
+  
+  # 姣忓垎閽熻姹傞檺鍒讹紝0琛ㄧず涓嶉檺鍒?
+  rate_limit_per_minute: 60
+  
+  # 鍙俊浠ｇ悊IP鍒楄〃锛堢敤浜庤幏鍙栫湡瀹炲鎴风IP锛屽浣跨敤nginx鍙嶅悜浠ｇ悊锛?
+  trusted_proxies: []
+
+# LLM閰嶇疆锛圤penAI鍏煎鏍煎紡锛?
+# 鏀寔 OpenAI, Azure, aihubmix, nvidia 绛変换浣?OpenAI 鍏煎鐨勬湇鍔?
+llm:
+  # API鍩虹URL锛屼笉鍚屾湇鍔″晢鐨刄RL涓嶅悓
+  # OpenAI: https://api.openai.com/v1
+  # aihubmix: https://api.aihubmix.com/v1
+  # nvidia: https://integrate.api.nvidia.com/v1
+  base_url: "${LLM_BASE_URL}"
+  
+  # API瀵嗛挜锛屽缓璁娇鐢ㄧ幆澧冨彉閲?
+  api_key: "${LLM_API_KEY}"
+  
+  # 妯″瀷鍚嶇О
+  model: "gpt-4o-mini"
+  
+  # 璇锋眰瓒呮椂鏃堕棿
+  timeout: 30s
+  
+  # 鏈€澶ч噸璇曟鏁?
+  max_retries: 3
+
+# Kafka閰嶇疆
+kafka:
+  brokers:
+    - "localhost:9092"
+  request_topic: "home.request"
+  response_topic: "home.response"
+  consumer_group: "gateway"
+  response_timeout: 5s
+
+# 娓犻亾閰嶇疆
+channels:
+  # Telegram閰嶇疆
+  telegram:
+    enabled: false
+    # Bot Token锛屼粠 @BotFather 鑾峰彇
+    bot_token: "${TELEGRAM_BOT_TOKEN}"
+    # Webhook楠岃瘉瀵嗛挜锛堝己鐑堝缓璁厤缃紝闃叉浼€犺姹傦級
+    # 璁剧疆鍚庯紝Telegram浼氬湪webhook璇锋眰涓惡甯︽瀵嗛挜杩涜楠岃瘉
+    webhook_secret: "${TELEGRAM_WEBHOOK_SECRET}"
+  
+  # 浼佷笟寰俊閰嶇疆
+  wechat_work:
+    enabled: false
+    corp_id: ""
+    agent_id: ""
+    secret: ""
+    token: ""
+    encoding_aes_key: ""
+
+# 鏃ュ織閰嶇疆
+log:
+  # 鏃ュ織绾у埆: debug, info, warn, error
+  level: "info"
+  # 鏃ュ織鏍煎紡: json, text
+  format: "text"

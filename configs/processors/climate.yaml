@@ -1,0 +1,67 @@
+# 娓╂帶璁惧澶勭悊鍣ㄧ粍
+# 鍖呭惈绌鸿皟銆佸湴鏆栫瓑娓╂帶璁惧
+
+processors:
+  # 绌鸿皟鎺у埗
+  - id: "ac_control"
+    name: "绌鸿皟鎺у埗"
+    group: "climate"
+    description: "鎺у埗瀹朵腑鍚勬埧闂寸殑绌鸿皟锛屽寘鎷紑鍏炽€佹俯搴﹁缃€佹ā寮忓垏鎹㈠拰椋庨€熻皟鑺傘€?
+    keywords:
+      - "绌鸿皟"
+      - "娓╁害"
+      - "鍒跺喎"
+      - "鍒剁儹"
+      - "椋庨€?
+      - "鍐锋皵"
+      - "鏆栨皵"
+    parameters:
+      - name: "room"
+        type: "string"
+        required: true
+        description: "鎴块棿鍚嶇О"
+      - name: "action"
+        type: "enum"
+        required: true
+        values: ["on", "off", "set_temp", "set_mode", "set_fan"]
+        description: "鎿嶄綔绫诲瀷锛歰n-寮€鏈猴紝off-鍏虫満锛宻et_temp-璁剧疆娓╁害锛宻et_mode-璁剧疆妯″紡锛宻et_fan-璁剧疆椋庨€?
+      - name: "temperature"
+        type: "int"
+        required: false
+        range: [16, 30]
+        description: "鐩爣娓╁害锛?6-30鎽勬皬搴︼級"
+      - name: "mode"
+        type: "enum"
+        required: false
+        values: ["cool", "heat", "auto", "dry", "fan"]
+        description: "杩愯妯″紡锛歝ool-鍒跺喎锛宧eat-鍒剁儹锛宎uto-鑷姩锛宒ry-闄ゆ箍锛宖an-閫侀"
+      - name: "fan_speed"
+        type: "enum"
+        required: false
+        values: ["auto", "low", "medium", "high"]
+        description: "椋庨€燂細auto-鑷姩锛宭ow-浣庯紝medium-涓紝high-楂?
+    enabled: true
+
+  # 鍦版殩鎺у埗
+  - id: "floor_heating"
+    name: "鍦版殩鎺у埗"
+    group: "climate"
+    description: "鎺у埗鍦版殩绯荤粺鐨勫紑鍏冲拰娓╁害"
+    keywords:
+      - "鍦版殩"
+      - "鍦扮儹"
+      - "鏆栨皵"
+    parameters:
+      - name: "room"
+        type: "string"
+        required: false
+        description: "鎴块棿鍚嶇О锛屼笉鎸囧畾鍒欐帶鍒跺叏灞?
+      - name: "action"
+        type: "enum"
+        required: true
+        values: ["on", "off", "set_temp"]
+      - name: "temperature"
+        type: "int"
+        required: false
+        range: [18, 28]
+    enabled: true
