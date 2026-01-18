@@ -94,7 +94,7 @@ func (p *TelegramParser) Parse(rawData []byte) (*model.UnifiedMessage, error) {
 		rawMap["from_name"] = msg.From.FirstName + " " + msg.From.LastName
 	}
 
-	return NewUnifiedMessage(msg.Text, "telegram", userID, chatID, rawMap), nil
+	return model.NewUnifiedMessage(msg.Text, model.ChannelTelegram, userID, chatID, rawMap), nil
 }
 
 // Validate 验证Telegram Webhook请求
