@@ -2,10 +2,7 @@ package api
 
 import (
 	"fmt"
-	"net"
 	"net/http"
-	"strings"
-	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"

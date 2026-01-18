@@ -1,7 +1,6 @@
 package api
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -125,9 +124,17 @@ func (h *Handler) TelegramWebhook(c *gin.Context) {
 		}
 	}
 
-	if !parser.Validate(headers, body) {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "Webhook验证失败"})
-		return
+	// 尝试作为TelegramParser进行验证
+	if tgParser, ok := parser.(*channel.TelegramParser); ok {
+		if !tgParser.Validate(headers, body) {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Webhook验证失败"})
+			return
+		}
+	} else {
+		// 理论上不会走到这里，因为上面已经根据 key 取到了 parser
+		// 但为了保险，如果取到的不是TelegramParser，应该通过还是拒绝？
+		// 既然是telegram路由，应该必须是TelegramParser
+		fmt.Printf("获取到的解析器类型错误: %T\n", parser)
 	}
 
 	// 2. 解析消息
