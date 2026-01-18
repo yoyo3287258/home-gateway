@@ -12,168 +12,168 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// Config 涓婚厤缃粨鏋?
+// Config 主配置结构
 type Config struct {
-	// Server HTTP鏈嶅姟鍣ㄩ厤缃?
+	// Server HTTP服务器配置
 	Server ServerConfig `yaml:"server"`
 
-	// Security 瀹夊叏閰嶇疆
+	// Security 安全配置
 	Security SecurityConfig `yaml:"security"`
 
-	// LLM 澶ц瑷€妯″瀷閰嶇疆
+	// LLM 大语言模型配置
 	LLM LLMConfig `yaml:"llm"`
 
-	// Kafka Kafka閰嶇疆
+	// Kafka Kafka配置
 	Kafka KafkaConfig `yaml:"kafka"`
 
-	// Channels 娓犻亾閰嶇疆
+	// Channels 渠道配置
 	Channels ChannelsConfig `yaml:"channels"`
 
-	// Log 鏃ュ織閰嶇疆
+	// Log 日志配置
 	Log LogConfig `yaml:"log"`
 }
 
-// SecurityConfig 瀹夊叏閰嶇疆
+// SecurityConfig 安全配置
 type SecurityConfig struct {
-	// APIToken API璁块棶浠ょ墝锛岀敤浜嶩TTP鎺ュ彛璁よ瘉
-	// 瀹㈡埛绔渶瑕佸湪璇锋眰澶翠腑鎼哄甫 Authorization: Bearer <token>
+	// APIToken API访问令牌，用于HTTP接口认证
+	// 客户端需要在请求头中携带 Authorization: Bearer <token>
 	APIToken string `yaml:"api_token"`
 
-	// IPWhitelist IP鐧藉悕鍗曪紝涓虹┖鍒欎笉闄愬埗
-	// 鏀寔鍗曚釜IP鍜孋IDR鏍煎紡锛屽 ["192.168.1.0/24", "10.0.0.1"]
+	// IPWhitelist IP白名单，为空则不限制
+	// 支持单个IP和CIDR格式，如 ["192.168.1.0/24", "10.0.0.1"]
 	IPWhitelist []string `yaml:"ip_whitelist"`
 
-	// RateLimitPerMinute 姣忓垎閽熻姹傞檺鍒讹紝0琛ㄧず涓嶉檺鍒?
+	// RateLimitPerMinute 每分钟请求限制，0表示不限制
 	RateLimitPerMinute int `yaml:"rate_limit_per_minute"`
 
-	// TrustedProxies 鍙俊浠ｇ悊IP鍒楄〃锛堢敤浜庤幏鍙栫湡瀹炲鎴风IP锛?
+	// TrustedProxies 可信代理IP列表（用于获取真实客户端IP）
 	TrustedProxies []string `yaml:"trusted_proxies"`
 }
 
-// ServerConfig HTTP鏈嶅姟鍣ㄩ厤缃?
+// ServerConfig HTTP服务器配置
 type ServerConfig struct {
-	// Host 鐩戝惉鍦板潃
+	// Host 监听地址
 	Host string `yaml:"host"`
 
-	// Port 鐩戝惉绔彛
+	// Port 监听端口
 	Port int `yaml:"port"`
 
-	// ReadTimeout 璇诲彇瓒呮椂
+	// ReadTimeout 读取超时
 	ReadTimeout time.Duration `yaml:"read_timeout"`
 
-	// WriteTimeout 鍐欏叆瓒呮椂
+	// WriteTimeout 写入超时
 	WriteTimeout time.Duration `yaml:"write_timeout"`
 }
 
-// LLMConfig 澶ц瑷€妯″瀷閰嶇疆
+// LLMConfig 大语言模型配置
 type LLMConfig struct {
-	// BaseURL API鍩虹URL锛圤penAI鍏煎鏍煎紡锛?
+	// BaseURL API基础URL（OpenAI兼容格式）
 	BaseURL string `yaml:"base_url"`
 
-	// APIKey API瀵嗛挜锛屾敮鎸佺幆澧冨彉閲忔牸寮?${ENV_VAR}
+	// APIKey API密钥，支持环境变量格式 ${ENV_VAR}
 	APIKey string `yaml:"api_key"`
 
-	// Model 妯″瀷鍚嶇О
+	// Model 模型名称
 	Model string `yaml:"model"`
 
-	// Timeout 璇锋眰瓒呮椂鏃堕棿
+	// Timeout 请求超时时间
 	Timeout time.Duration `yaml:"timeout"`
 
-	// MaxRetries 鏈€澶ч噸璇曟鏁?
+	// MaxRetries 最大重试次数
 	MaxRetries int `yaml:"max_retries"`
 }
 
-// KafkaConfig Kafka閰嶇疆
+// KafkaConfig Kafka配置
 type KafkaConfig struct {
-	// Brokers Kafka broker鍦板潃鍒楄〃
+	// Brokers Kafka broker地址列表
 	Brokers []string `yaml:"brokers"`
 
-	// RequestTopic 璇锋眰topic
+	// RequestTopic 请求topic
 	RequestTopic string `yaml:"request_topic"`
 
-	// ResponseTopic 鍝嶅簲topic
+	// ResponseTopic 响应topic
 	ResponseTopic string `yaml:"response_topic"`
 
-	// ConsumerGroup 娑堣垂鑰呯粍
+	// ConsumerGroup 消费者组
 	ConsumerGroup string `yaml:"consumer_group"`
 
-	// ResponseTimeout 鍝嶅簲瓒呮椂鏃堕棿
+	// ResponseTimeout 响应超时时间
 	ResponseTimeout time.Duration `yaml:"response_timeout"`
 }
 
-// ChannelsConfig 娓犻亾閰嶇疆
+// ChannelsConfig 渠道配置
 type ChannelsConfig struct {
-	// Telegram Telegram閰嶇疆
+	// Telegram Telegram配置
 	Telegram TelegramConfig `yaml:"telegram"`
 
-	// WeChatWork 浼佷笟寰俊閰嶇疆
+	// WeChatWork 企业微信配置
 	WeChatWork WeChatWorkConfig `yaml:"wechat_work"`
 }
 
-// TelegramConfig Telegram閰嶇疆
+// TelegramConfig Telegram配置
 type TelegramConfig struct {
-	// Enabled 鏄惁鍚敤
+	// Enabled 是否启用
 	Enabled bool `yaml:"enabled"`
 
 	// BotToken Bot Token
 	BotToken string `yaml:"bot_token"`
 
-	// WebhookSecret Webhook楠岃瘉瀵嗛挜
+	// WebhookSecret Webhook验证密钥
 	WebhookSecret string `yaml:"webhook_secret"`
 }
 
-// WeChatWorkConfig 浼佷笟寰俊閰嶇疆
+// WeChatWorkConfig 企业微信配置
 type WeChatWorkConfig struct {
-	// Enabled 鏄惁鍚敤
+	// Enabled 是否启用
 	Enabled bool `yaml:"enabled"`
 
-	// CorpID 浼佷笟ID
+	// CorpID 企业ID
 	CorpID string `yaml:"corp_id"`
 
-	// AgentID 搴旂敤ID
+	// AgentID 应用ID
 	AgentID string `yaml:"agent_id"`
 
-	// Secret 搴旂敤瀵嗛挜
+	// Secret 应用密钥
 	Secret string `yaml:"secret"`
 
-	// Token 娑堟伅Token
+	// Token 消息Token
 	Token string `yaml:"token"`
 
-	// EncodingAESKey 娑堟伅鍔犲瘑瀵嗛挜
+	// EncodingAESKey 消息加密密钥
 	EncodingAESKey string `yaml:"encoding_aes_key"`
 }
 
-// LogConfig 鏃ュ織閰嶇疆
+// LogConfig 日志配置
 type LogConfig struct {
-	// Level 鏃ュ織绾у埆: debug, info, warn, error
+	// Level 日志级别: debug, info, warn, error
 	Level string `yaml:"level"`
 
-	// Format 鏃ュ織鏍煎紡: json, text
+	// Format 日志格式: json, text
 	Format string `yaml:"format"`
 }
 
-// ProcessorsConfig 澶勭悊鍣ㄩ厤缃?
+// ProcessorsConfig 处理器配置
 type ProcessorsConfig struct {
-	// Processors 澶勭悊鍣ㄥ垪琛?
+	// Processors 处理器列表
 	Processors []model.Processor `yaml:"processors"`
 }
 
-// Manager 閰嶇疆绠＄悊鍣?
+// Manager 配置管理器
 type Manager struct {
 	configPath     string
-	processorsDir  string // 鏀逛负鐩綍锛屾敮鎸佸涓厤缃枃浠?
+	processorsDir  string // 改为目录，支持多个配置文件
 
 	config     *Config
 	processors *ProcessorsConfig
 
 	mu sync.RWMutex
 
-	// onReload 閰嶇疆閲嶈浇鍥炶皟鍑芥暟
+	// onReload 配置重载回调函数
 	onReload []func()
 }
 
-// NewManager 鍒涘缓閰嶇疆绠＄悊鍣?
-// processorsPath 鍙互鏄崟涓獃aml鏂囦欢鎴栧寘鍚涓獃aml鏂囦欢鐨勭洰褰?
+// NewManager 创建配置管理器
+// processorsPath 可以是单个yaml文件或包含多个yaml文件的目录
 func NewManager(configPath, processorsPath string) *Manager {
 	return &Manager{
 		configPath:    configPath,
@@ -181,36 +181,36 @@ func NewManager(configPath, processorsPath string) *Manager {
 	}
 }
 
-// Load 鍔犺浇閰嶇疆
+// Load 加载配置
 func (m *Manager) Load() error {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
-	// 鍔犺浇涓婚厤缃?
+	// 加载主配置
 	config, err := m.loadConfig(m.configPath)
 	if err != nil {
-		return fmt.Errorf("鍔犺浇涓婚厤缃け璐? %w", err)
+		return fmt.Errorf("加载主配置失败: %w", err)
 	}
 	m.config = config
 
-	// 鍔犺浇澶勭悊鍣ㄩ厤缃紙鏀寔鍗曟枃浠舵垨鐩綍锛?
+	// 加载处理器配置（支持单文件或目录）
 	processors, err := m.loadProcessors(m.processorsDir)
 	if err != nil {
-		return fmt.Errorf("鍔犺浇澶勭悊鍣ㄩ厤缃け璐? %w", err)
+		return fmt.Errorf("加载处理器配置失败: %w", err)
 	}
 	m.processors = processors
 
 	return nil
 }
 
-// loadConfig 鍔犺浇涓婚厤缃枃浠?
+// loadConfig 加载主配置文件
 func (m *Manager) loadConfig(path string) (*Config, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err
 	}
 
-	// 鏇挎崲鐜鍙橀噺
+	// 替换环境变量
 	content := expandEnvVars(string(data))
 
 	var config Config
@@ -218,14 +218,14 @@ func (m *Manager) loadConfig(path string) (*Config, error) {
 		return nil, err
 	}
 
-	// 璁剧疆榛樿鍊?
+	// 设置默认值
 	setDefaults(&config)
 
 	return &config, nil
 }
 
-// loadProcessors 鍔犺浇澶勭悊鍣ㄩ厤缃?
-// 鏀寔鍗曚釜yaml鏂囦欢鎴栧寘鍚涓獃aml鏂囦欢鐨勭洰褰?
+// loadProcessors 加载处理器配置
+// 支持单个yaml文件或包含多个yaml文件的目录
 func (m *Manager) loadProcessors(path string) (*ProcessorsConfig, error) {
 	info, err := os.Stat(path)
 	if err != nil {
@@ -235,10 +235,10 @@ func (m *Manager) loadProcessors(path string) (*ProcessorsConfig, error) {
 	var allProcessors []model.Processor
 
 	if info.IsDir() {
-		// 鐩綍妯″紡锛氬姞杞界洰褰曚笅鎵€鏈墆aml鏂囦欢
+		// 目录模式：加载目录下所有yaml文件
 		entries, err := os.ReadDir(path)
 		if err != nil {
-			return nil, fmt.Errorf("璇诲彇澶勭悊鍣ㄧ洰褰曞け璐? %w", err)
+			return nil, fmt.Errorf("读取处理器目录失败: %w", err)
 		}
 
 		for _, entry := range entries {
@@ -253,12 +253,12 @@ func (m *Manager) loadProcessors(path string) (*ProcessorsConfig, error) {
 			filePath := path + "/" + name
 			processors, err := m.loadSingleProcessorFile(filePath)
 			if err != nil {
-				return nil, fmt.Errorf("鍔犺浇澶勭悊鍣ㄦ枃浠?%s 澶辫触: %w", name, err)
+				return nil, fmt.Errorf("加载处理器文件 %s 失败: %w", name, err)
 			}
 			allProcessors = append(allProcessors, processors...)
 		}
 	} else {
-		// 鍗曟枃浠舵ā寮?
+		// 单文件模式
 		processors, err := m.loadSingleProcessorFile(path)
 		if err != nil {
 			return nil, err
@@ -269,7 +269,7 @@ func (m *Manager) loadProcessors(path string) (*ProcessorsConfig, error) {
 	return &ProcessorsConfig{Processors: allProcessors}, nil
 }
 
-// loadSingleProcessorFile 鍔犺浇鍗曚釜澶勭悊鍣ㄩ厤缃枃浠?
+// loadSingleProcessorFile 加载单个处理器配置文件
 func (m *Manager) loadSingleProcessorFile(path string) ([]model.Processor, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
@@ -281,12 +281,12 @@ func (m *Manager) loadSingleProcessorFile(path string) ([]model.Processor, error
 		return nil, err
 	}
 
-	// 浠庢枃浠跺悕鎺ㄦ柇鍒嗙粍锛堝鏋滃鐞嗗櫒娌℃湁璁剧疆group锛?
+	// 从文件名推断分组（如果处理器没有设置group）
 	baseName := strings.TrimSuffix(strings.TrimSuffix(path, ".yaml"), ".yml")
 	parts := strings.Split(baseName, "/")
 	if len(parts) > 0 {
 		defaultGroup := parts[len(parts)-1]
-		// 绉婚櫎 -processors 鍚庣紑
+		// 移除 -processors 后缀
 		defaultGroup = strings.TrimSuffix(defaultGroup, "-processors")
 		defaultGroup = strings.TrimSuffix(defaultGroup, "_processors")
 		
@@ -294,10 +294,10 @@ func (m *Manager) loadSingleProcessorFile(path string) ([]model.Processor, error
 			if config.Processors[i].Group == "" {
 				config.Processors[i].Group = defaultGroup
 			}
-			// 榛樿鍚敤
+			// 默认启用
 			if !config.Processors[i].Enabled {
-				// YAML涓湭璁剧疆鏃讹紝bool榛樿涓篺alse锛岃繖閲岄渶瑕佺壒娈婂鐞?
-				// 閫氳繃妫€鏌ユ槸鍚︽湁enabled瀛楁鏉ュ垽鏂紙鐩墠绠€鍖栦负榛樿鍚敤锛?
+				// YAML中未设置时，bool默认为false，这里需要特殊处理
+				// 通过检查是否有enabled字段来判断（目前简化为默认启用）
 			}
 		}
 	}
@@ -305,13 +305,13 @@ func (m *Manager) loadSingleProcessorFile(path string) ([]model.Processor, error
 	return config.Processors, nil
 }
 
-// Reload 閲嶆柊鍔犺浇閰嶇疆
+// Reload 重新加载配置
 func (m *Manager) Reload() error {
 	if err := m.Load(); err != nil {
 		return err
 	}
 
-	// 瑙﹀彂鍥炶皟
+	// 触发回调
 	m.mu.RLock()
 	callbacks := m.onReload
 	m.mu.RUnlock()
@@ -323,14 +323,14 @@ func (m *Manager) Reload() error {
 	return nil
 }
 
-// OnReload 娉ㄥ唽閰嶇疆閲嶈浇鍥炶皟
+// OnReload 注册配置重载回调
 func (m *Manager) OnReload(callback func()) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.onReload = append(m.onReload, callback)
 }
 
-// WatchChanges 鐩戝惉閰嶇疆鏂囦欢鍙樺寲
+// WatchChanges 监听配置文件变化
 func (m *Manager) WatchChanges() error {
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
@@ -346,19 +346,19 @@ func (m *Manager) WatchChanges() error {
 					return
 				}
 				if event.Op&fsnotify.Write == fsnotify.Write {
-					// 寤惰繜涓€涓嬶紝纭繚鏂囦欢鍐欏叆瀹屾垚
+					// 延迟一下，确保文件写入完成
 					time.Sleep(100 * time.Millisecond)
 					if err := m.Reload(); err != nil {
-						fmt.Printf("閰嶇疆閲嶈浇澶辫触: %v\n", err)
+						fmt.Printf("配置重载失败: %v\n", err)
 					} else {
-						fmt.Println("閰嶇疆宸查噸鏂板姞杞?)
+						fmt.Println("配置已重新加载")
 					}
 				}
 			case err, ok := <-watcher.Errors:
 				if !ok {
 					return
 				}
-				fmt.Printf("閰嶇疆鐩戝惉閿欒: %v\n", err)
+				fmt.Printf("配置监听错误: %v\n", err)
 			}
 		}
 	}()
@@ -373,14 +373,14 @@ func (m *Manager) WatchChanges() error {
 	return nil
 }
 
-// Get 鑾峰彇涓婚厤缃紙鍙锛?
+// Get 获取主配置（只读）
 func (m *Manager) Get() *Config {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	return m.config
 }
 
-// GetProcessors 鑾峰彇澶勭悊鍣ㄥ垪琛?
+// GetProcessors 获取处理器列表
 func (m *Manager) GetProcessors() []model.Processor {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
@@ -390,7 +390,7 @@ func (m *Manager) GetProcessors() []model.Processor {
 	return m.processors.Processors
 }
 
-// GetProcessor 鏍规嵁ID鑾峰彇澶勭悊鍣?
+// GetProcessor 根据ID获取处理器
 func (m *Manager) GetProcessor(id string) *model.Processor {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
@@ -405,8 +405,8 @@ func (m *Manager) GetProcessor(id string) *model.Processor {
 	return nil
 }
 
-// expandEnvVars 灞曞紑鐜鍙橀噺
-// 鏀寔 ${VAR} 鍜?$VAR 鏍煎紡
+// expandEnvVars 展开环境变量
+// 支持 ${VAR} 和 $VAR 格式
 func expandEnvVars(s string) string {
 	return os.Expand(s, func(key string) string {
 		if val, ok := os.LookupEnv(key); ok {
@@ -416,7 +416,7 @@ func expandEnvVars(s string) string {
 	})
 }
 
-// setDefaults 璁剧疆榛樿鍊?
+// setDefaults 设置默认值
 func setDefaults(config *Config) {
 	if config.Server.Host == "" {
 		config.Server.Host = "0.0.0.0"
@@ -459,26 +459,26 @@ func setDefaults(config *Config) {
 	}
 }
 
-// Validate 楠岃瘉閰嶇疆
+// Validate 验证配置
 func (c *Config) Validate() error {
 	var errs []string
 
 	if c.LLM.BaseURL == "" {
-		errs = append(errs, "llm.base_url 涓嶈兘涓虹┖")
+		errs = append(errs, "llm.base_url 不能为空")
 	}
 	if c.LLM.APIKey == "" || strings.HasPrefix(c.LLM.APIKey, "${") {
-		errs = append(errs, "llm.api_key 鏈缃垨鐜鍙橀噺鏈畾涔?)
+		errs = append(errs, "llm.api_key 未设置或环境变量未定义")
 	}
 	if c.LLM.Model == "" {
-		errs = append(errs, "llm.model 涓嶈兘涓虹┖")
+		errs = append(errs, "llm.model 不能为空")
 	}
 
 	if len(c.Kafka.Brokers) == 0 {
-		errs = append(errs, "kafka.brokers 涓嶈兘涓虹┖")
+		errs = append(errs, "kafka.brokers 不能为空")
 	}
 
 	if len(errs) > 0 {
-		return fmt.Errorf("閰嶇疆楠岃瘉澶辫触:\n  - %s", strings.Join(errs, "\n  - "))
+		return fmt.Errorf("配置验证失败:\n  - %s", strings.Join(errs, "\n  - "))
 	}
 
 	return nil

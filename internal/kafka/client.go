@@ -11,13 +11,13 @@ import (
 	"github.com/yoyo3287258/home-gateway/internal/model"
 )
 
-// Producer Kafka鐢熶骇鑰?
+// Producer Kafka生产者
 type Producer struct {
 	producer sarama.SyncProducer
 	topic    string
 }
 
-// NewProducer 鍒涘缓Kafka鐢熶骇鑰?
+// NewProducer 创建Kafka生产者
 func NewProducer(cfg *config.KafkaConfig) (*Producer, error) {
 	config := sarama.NewConfig()
 	config.Producer.RequiredAcks = sarama.WaitForAll
@@ -26,7 +26,7 @@ func NewProducer(cfg *config.KafkaConfig) (*Producer, error) {
 
 	producer, err := sarama.NewSyncProducer(cfg.Brokers, config)
 	if err != nil {
-		return nil, fmt.Errorf("鍒涘缓Kafka鐢熶骇鑰呭け璐? %w", err)
+		return nil, fmt.Errorf("创建Kafka生产者失败: %w", err)
 	}
 
 	return &Producer{
@@ -35,11 +35,11 @@ func NewProducer(cfg *config.KafkaConfig) (*Producer, error) {
 	}, nil
 }
 
-// SendRequest 鍙戦€佽姹傛秷鎭埌Kafka
+// SendRequest 发送请求消息到Kafka
 func (p *Producer) SendRequest(req *model.KafkaRequest) error {
 	data, err := json.Marshal(req)
 	if err != nil {
-		return fmt.Errorf("搴忓垪鍖栬姹傚け璐? %w", err)
+		return fmt.Errorf("序列化请求失败: %w", err)
 	}
 
 	msg := &sarama.ProducerMessage{
@@ -50,13 +50,13 @@ func (p *Producer) SendRequest(req *model.KafkaRequest) error {
 
 	_, _, err = p.producer.SendMessage(msg)
 	if err != nil {
-		return fmt.Errorf("鍙戦€並afka娑堟伅澶辫触: %w", err)
+		return fmt.Errorf("发送Kafka消息失败: %w", err)
 	}
 
 	return nil
 }
 
-// Close 鍏抽棴鐢熶骇鑰?
+// Close 关闭生产者
 func (p *Producer) Close() error {
 	if p.producer != nil {
 		return p.producer.Close()
@@ -64,7 +64,7 @@ func (p *Producer) Close() error {
 	return nil
 }
 
-// Consumer Kafka娑堣垂鑰?
+// Consumer Kafka消费者
 type Consumer struct {
 	consumer      sarama.Consumer
 	topic         string
@@ -73,14 +73,14 @@ type Consumer struct {
 	pendingResps  map[string]chan *model.KafkaResponse
 }
 
-// NewConsumer 鍒涘缓Kafka娑堣垂鑰?
+// NewConsumer 创建Kafka消费者
 func NewConsumer(cfg *config.KafkaConfig) (*Consumer, error) {
 	config := sarama.NewConfig()
 	config.Consumer.Return.Errors = true
 
 	consumer, err := sarama.NewConsumer(cfg.Brokers, config)
 	if err != nil {
-		return nil, fmt.Errorf("鍒涘缓Kafka娑堣垂鑰呭け璐? %w", err)
+		return nil, fmt.Errorf("创建Kafka消费者失败: %w", err)
 	}
 
 	c := &Consumer{
@@ -90,24 +90,24 @@ func NewConsumer(cfg *config.KafkaConfig) (*Consumer, error) {
 		pendingResps: make(map[string]chan *model.KafkaResponse),
 	}
 
-	// 鍚姩娑堣垂鑰呭崗绋?
+	// 启动消费者协程
 	go c.consumeLoop()
 
 	return c, nil
 }
 
-// consumeLoop 娑堣垂鍝嶅簲娑堟伅鐨勫惊鐜?
+// consumeLoop 消费响应消息的循环
 func (c *Consumer) consumeLoop() {
 	partitions, err := c.consumer.Partitions(c.topic)
 	if err != nil {
-		fmt.Printf("鑾峰彇鍒嗗尯澶辫触: %v\n", err)
+		fmt.Printf("获取分区失败: %v\n", err)
 		return
 	}
 
 	for _, partition := range partitions {
 		pc, err := c.consumer.ConsumePartition(c.topic, partition, sarama.OffsetNewest)
 		if err != nil {
-			fmt.Printf("璁㈤槄鍒嗗尯 %d 澶辫触: %v\n", partition, err)
+			fmt.Printf("订阅分区 %d 失败: %v\n", partition, err)
 			continue
 		}
 
@@ -119,11 +119,11 @@ func (c *Consumer) consumeLoop() {
 	}
 }
 
-// handleMessage 澶勭悊鎺ユ敹鍒扮殑娑堟伅
+// handleMessage 处理接收到的消息
 func (c *Consumer) handleMessage(msg *sarama.ConsumerMessage) {
 	var resp model.KafkaResponse
 	if err := json.Unmarshal(msg.Value, &resp); err != nil {
-		fmt.Printf("瑙ｆ瀽鍝嶅簲娑堟伅澶辫触: %v\n", err)
+		fmt.Printf("解析响应消息失败: %v\n", err)
 		return
 	}
 
@@ -132,7 +132,7 @@ func (c *Consumer) handleMessage(msg *sarama.ConsumerMessage) {
 	c.pendingMu.RUnlock()
 
 	if ok {
-		// 闈為樆濉炲彂閫侊紝闃叉瓒呮椂鍚巆hannel琚叧闂?
+		// 非阻塞发送，防止超时后channel被关闭
 		select {
 		case ch <- &resp:
 		default:
@@ -140,7 +140,7 @@ func (c *Consumer) handleMessage(msg *sarama.ConsumerMessage) {
 	}
 }
 
-// WaitForResponse 绛夊緟鎸囧畾TraceID鐨勫搷搴?
+// WaitForResponse 等待指定TraceID的响应
 func (c *Consumer) WaitForResponse(traceID string) (*model.KafkaResponse, error) {
 	ch := make(chan *model.KafkaResponse, 1)
 
@@ -158,11 +158,11 @@ func (c *Consumer) WaitForResponse(traceID string) (*model.KafkaResponse, error)
 	case resp := <-ch:
 		return resp, nil
 	case <-time.After(c.timeout):
-		return nil, fmt.Errorf("绛夊緟鍝嶅簲瓒呮椂锛?v锛?, c.timeout)
+		return nil, fmt.Errorf("等待响应超时（%v）", c.timeout)
 	}
 }
 
-// Close 鍏抽棴娑堣垂鑰?
+// Close 关闭消费者
 func (c *Consumer) Close() error {
 	if c.consumer != nil {
 		return c.consumer.Close()
@@ -170,13 +170,13 @@ func (c *Consumer) Close() error {
 	return nil
 }
 
-// Client Kafka瀹㈡埛绔紙灏佽鐢熶骇鑰呭拰娑堣垂鑰咃級
+// Client Kafka客户端（封装生产者和消费者）
 type Client struct {
 	Producer *Producer
 	Consumer *Consumer
 }
 
-// NewClient 鍒涘缓Kafka瀹㈡埛绔?
+// NewClient 创建Kafka客户端
 func NewClient(cfg *config.KafkaConfig) (*Client, error) {
 	producer, err := NewProducer(cfg)
 	if err != nil {
@@ -195,18 +195,18 @@ func NewClient(cfg *config.KafkaConfig) (*Client, error) {
 	}, nil
 }
 
-// SendAndWait 鍙戦€佽姹傚苟绛夊緟鍝嶅簲
+// SendAndWait 发送请求并等待响应
 func (c *Client) SendAndWait(req *model.KafkaRequest) (*model.KafkaResponse, error) {
-	// 鍙戦€佽姹?
+	// 发送请求
 	if err := c.Producer.SendRequest(req); err != nil {
 		return nil, err
 	}
 
-	// 绛夊緟鍝嶅簲
+	// 等待响应
 	return c.Consumer.WaitForResponse(req.TraceID)
 }
 
-// Close 鍏抽棴瀹㈡埛绔?
+// Close 关闭客户端
 func (c *Client) Close() error {
 	var errs []error
 	if err := c.Producer.Close(); err != nil {
@@ -216,7 +216,7 @@ func (c *Client) Close() error {
 		errs = append(errs, err)
 	}
 	if len(errs) > 0 {
-		return fmt.Errorf("鍏抽棴Kafka瀹㈡埛绔け璐? %v", errs)
+		return fmt.Errorf("关闭Kafka客户端失败: %v", errs)
 	}
 	return nil
 }

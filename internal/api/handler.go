@@ -2,6 +2,8 @@ package api
 
 import (
 	"context"
+	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"time"
@@ -15,153 +17,107 @@ import (
 	"github.com/yoyo3287258/home-gateway/internal/model"
 )
 
-// Version 绋嬪簭鐗堟湰鍙凤紙鍦ㄧ紪璇戞椂娉ㄥ叆锛?
-var Version = "dev"
-
-// Handler API璇锋眰澶勭悊鍣?
+// Handler API处理器
 type Handler struct {
 	configMgr   *config.Manager
 	llmClient   *llm.Client
 	kafkaClient *kafka.Client
-	startTime   time.Time
+	parsers     map[string]channel.Parser
 }
 
-// NewHandler 鍒涘缓璇锋眰澶勭悊鍣?
+// NewHandler 创建API处理器
 func NewHandler(configMgr *config.Manager, llmClient *llm.Client, kafkaClient *kafka.Client) *Handler {
-	return &Handler{
+	h := &Handler{
 		configMgr:   configMgr,
 		llmClient:   llmClient,
 		kafkaClient: kafkaClient,
-		startTime:   time.Now(),
+		parsers:     make(map[string]channel.Parser),
 	}
+	
+	// 初始化解析器
+	h.registerParsers()
+	
+	return h
 }
 
-// Health 鍋ュ悍妫€鏌ユ帴鍙?
-func (h *Handler) Health(c *gin.Context) {
-	components := make(map[string]string)
+// registerParsers 注册所有支持的渠道解析器
+func (h *Handler) registerParsers() {
+	cfg := h.configMgr.Get()
 	
-	// 妫€鏌LM
-	if h.llmClient != nil {
-		components["llm"] = "ok"
-	} else {
-		components["llm"] = "not_configured"
+	// Generic HTTP Parser
+	httpParser := &channel.HTTPParser{}
+	h.parsers[httpParser.Name()] = httpParser
+	
+	// Telegram Parser
+	if cfg.Channels.Telegram.Enabled {
+		telegramParser := &channel.TelegramParser{
+			WebhookSecret: cfg.Channels.Telegram.WebhookSecret,
+		}
+		h.parsers[telegramParser.Name()] = telegramParser
 	}
+	
+	// WeChat Work Parser (TODO)
+}
 
-	// 妫€鏌afka
-	if h.kafkaClient != nil {
-		components["kafka"] = "ok"
-	} else {
-		components["kafka"] = "not_configured"
-	}
-
-	c.JSON(http.StatusOK, model.HealthResponse{
-		Status:     "ok",
-		Version:    Version,
-		Uptime:     int64(time.Since(h.startTime).Seconds()),
-		Components: components,
+// Health 健康检查
+func (h *Handler) Health(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{
+		"status": "up",
+		"time":   time.Now(),
+		"version": "dev", // TODO: inject version
 	})
 }
 
-// ListProcessors 鑾峰彇澶勭悊鍣ㄥ垪琛?
+// ListProcessors 获取处理器列表
 func (h *Handler) ListProcessors(c *gin.Context) {
 	processors := h.configMgr.GetProcessors()
-	
-	// 鍙繑鍥炲惎鐢ㄧ殑澶勭悊鍣紝涓斾笉鏆撮湶鍐呴儴缁嗚妭
-	var result []map[string]interface{}
-	for _, p := range processors {
-		if p.Enabled {
-			result = append(result, map[string]interface{}{
-				"id":          p.ID,
-				"name":        p.Name,
-				"description": p.Description,
-			})
-		}
-	}
-
 	c.JSON(http.StatusOK, gin.H{
-		"processors": result,
-		"count":      len(result),
+		"data": processors,
 	})
 }
 
-// Command 閫氱敤鍛戒护澶勭悊鎺ュ彛
+// Command 处理通用命令请求
 func (h *Handler) Command(c *gin.Context) {
-	var req model.CommandRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, model.CommandResponse{
-			Success: false,
-			Message: "璇锋眰鏍煎紡閿欒: " + err.Error(),
-		})
-		return
-	}
-
-	// 璁剧疆榛樿娓犻亾
-	if req.Channel == "" {
-		req.Channel = "http"
-	}
-
-	// 鍒涘缓缁熶竴娑堟伅
-	msg := &model.UnifiedMessage{
-		Text:      req.Text,
-		Channel:   req.Channel,
-		Timestamp: time.Now(),
-	}
-
-	// 澶勭悊娑堟伅
-	resp := h.processMessage(c.Request.Context(), msg)
-	
-	if resp.Success {
-		c.JSON(http.StatusOK, resp)
-	} else {
-		c.JSON(http.StatusOK, resp) // 涓氬姟閿欒浠嶇劧杩斿洖200
-	}
-}
-
-// ReloadConfig 閲嶆柊鍔犺浇閰嶇疆
-func (h *Handler) ReloadConfig(c *gin.Context) {
-	if err := h.configMgr.Reload(); err != nil {
-		c.JSON(http.StatusInternalServerError, model.ReloadResponse{
-			Success: false,
-			Message: "閰嶇疆閲嶈浇澶辫触: " + err.Error(),
-		})
-		return
-	}
-
-	processors := h.configMgr.GetProcessors()
-	enabledCount := 0
-	for _, p := range processors {
-		if p.Enabled {
-			enabledCount++
-		}
-	}
-
-	c.JSON(http.StatusOK, model.ReloadResponse{
-		Success:        true,
-		Message:        "閰嶇疆閲嶈浇鎴愬姛",
-		ProcessorCount: enabledCount,
-	})
-}
-
-// TelegramWebhook Telegram Webhook澶勭悊
-func (h *Handler) TelegramWebhook(c *gin.Context) {
-	cfg := h.configMgr.Get()
-	if !cfg.Channels.Telegram.Enabled {
-		c.JSON(http.StatusForbidden, gin.H{"error": "Telegram娓犻亾鏈惎鐢?})
-		return
-	}
-
-	// 璇诲彇璇锋眰浣?
+	// 1. 读取请求体
 	body, err := io.ReadAll(c.Request.Body)
 	if err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "璇诲彇璇锋眰澶辫触"})
+		c.JSON(http.StatusBadRequest, gin.H{"error": "无法读取请求体"})
 		return
 	}
 
-	// 鑾峰彇瑙ｆ瀽鍣ㄥ苟楠岃瘉
-	parser := &channel.TelegramParser{
-		WebhookSecret: cfg.Channels.Telegram.WebhookSecret,
+	// 2. 解析消息（默认使用HTTP parser）
+	parser := h.parsers["http"]
+	if parser == nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "HTTP解析器未初始化"})
+		return
 	}
 
+	msg, err := parser.Parse(body)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": fmt.Sprintf("解析请求失败: %v", err)})
+		return
+	}
+
+	// 3. 处理消息
+	h.processMessage(c, msg)
+}
+
+// TelegramWebhook 处理Telegram Webhook请求
+func (h *Handler) TelegramWebhook(c *gin.Context) {
+	// 1. 验证请求
+	parser, ok := h.parsers["telegram"]
+	if !ok {
+		c.JSON(http.StatusServiceUnavailable, gin.H{"error": "Telegram未启用"})
+		return
+	}
+
+	body, err := io.ReadAll(c.Request.Body)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "无法读取请求体"})
+		return
+	}
+
+	// 转换header map
 	headers := make(map[string]string)
 	for k, v := range c.Request.Header {
 		if len(v) > 0 {
@@ -170,172 +126,152 @@ func (h *Handler) TelegramWebhook(c *gin.Context) {
 	}
 
 	if !parser.Validate(headers, body) {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "楠岃瘉澶辫触"})
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "Webhook验证失败"})
 		return
 	}
 
-	// 瑙ｆ瀽娑堟伅
+	// 2. 解析消息
 	msg, err := parser.Parse(body)
 	if err != nil {
-		// Telegram闇€瑕佽繑鍥?00锛屽惁鍒欎細閲嶈瘯
-		c.JSON(http.StatusOK, gin.H{"error": err.Error()})
+		// Telegram可能会重试，如果解析失败记录日志并返回200避免重试轰炸?
+		// 但为了调试，先返回错误
+		fmt.Printf("Telegram解析失败: %v\n", err)
+		c.JSON(http.StatusOK, gin.H{"status": "ignored", "reason": err.Error()})
 		return
 	}
 
-	// 澶勭悊娑堟伅锛堝紓姝ワ紝涓嶉樆濉濿ebhook鍝嶅簲锛?
-	go func() {
-		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-		defer cancel()
-		
-		resp := h.processMessage(ctx, msg)
-		
-		// TODO: 閫氳繃Telegram API鍙戦€佸洖澶?
-		_ = resp
-	}()
-
-	// Telegram Webhook闇€瑕佸揩閫熻繑鍥?00
-	c.JSON(http.StatusOK, gin.H{"ok": true})
+	// 3. 处理消息
+	h.processMessage(c, msg)
 }
 
-// WeChatWorkWebhook 浼佷笟寰俊Webhook澶勭悊锛堥鐣欙級
+// WeChatWorkWebhook 处理企业微信Webhook请求
 func (h *Handler) WeChatWorkWebhook(c *gin.Context) {
-	c.JSON(http.StatusNotImplemented, gin.H{"error": "浼佷笟寰俊娓犻亾鏆傛湭瀹炵幇"})
+	// TODO: implement
+	c.JSON(http.StatusNotImplemented, gin.H{"error": "尚未实现"})
 }
 
-// processMessage 澶勭悊缁熶竴娑堟伅
-func (h *Handler) processMessage(ctx context.Context, msg *model.UnifiedMessage) *model.CommandResponse {
-	traceID := uuid.New().String()
+// ReloadConfig 重载配置
+func (h *Handler) ReloadConfig(c *gin.Context) {
+	if err := h.configMgr.Reload(); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": fmt.Sprintf("重载配置失败: %v", err)})
+		return
+	}
+	
+	// 重新注册解析器（配置可能改变）
+	h.registerParsers()
+	
+	c.JSON(http.StatusOK, gin.H{"message": "配置已重载"})
+}
 
-	// 1. 浣跨敤LLM鍖归厤澶勭悊鍣?
-	processors := h.configMgr.GetProcessors()
-	if len(processors) == 0 {
-		return &model.CommandResponse{
-			Success: false,
-			Message: "娌℃湁鍙敤鐨勫鐞嗗櫒锛岃妫€鏌ラ厤缃?,
-			TraceID: traceID,
-		}
+// processMessage 处理统一消息的核心逻辑
+func (h *Handler) processMessage(c *gin.Context, msg *model.UnifiedMessage) {
+	ctx := c.Request.Context()
+	traceID := c.GetString("trace_id")
+	if traceID == "" {
+		traceID = uuid.New().String()
 	}
 
-	matchResult, err := h.llmClient.MatchProcessors(ctx, msg.Text, processors)
+	fmt.Printf("[%s] 收到消息: %s (来自: %s)\n", traceID, msg.Content, msg.Channel)
+
+	// 1. LLM 意图识别 (匹配处理器)
+	processors := h.configMgr.GetProcessors()
+	matchResult, err := h.llmClient.MatchProcessors(ctx, msg.Content, processors)
 	if err != nil {
-		return &model.CommandResponse{
-			Success: false,
-			Message: "澶勭悊鍣ㄥ尮閰嶅け璐? " + err.Error(),
-			TraceID: traceID,
-		}
+		fmt.Printf("[%s] LLM匹配失败: %v\n", traceID, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "意图识别服务异常"})
+		return
 	}
 
 	if len(matchResult.Matches) == 0 {
-		return &model.CommandResponse{
-			Success: false,
-			Message: "鏃犳硶璇嗗埆鎮ㄧ殑鎸囦护锛岃灏濊瘯鏇存槑纭殑鎻忚堪",
-			TraceID: traceID,
-		}
+		c.JSON(http.StatusOK, gin.H{
+			"message": "抱歉，我没有理解您的指令，或者没有找到对应的功能。",
+			"trace_id": traceID,
+		})
+		return
 	}
 
-	// 2. 妫€鏌ユ槸鍚︽湁澶氫釜楂樼疆淇″害鍖归厤
-	const confidenceThreshold = 0.8
-	const ambiguityGap = 0.15
-	
-	topMatch := matchResult.Matches[0]
-	if len(matchResult.Matches) > 1 {
-		secondMatch := matchResult.Matches[1]
-		// 濡傛灉绗竴鍜岀浜屽尮閰嶇殑缃俊搴﹀樊璺濆皬浜庨槇鍊硷紝璁╃敤鎴烽€夋嫨
-		if topMatch.Confidence < confidenceThreshold || 
-		   (topMatch.Confidence - secondMatch.Confidence) < ambiguityGap {
-			var candidates []model.ProcessorCandidate
-			for _, m := range matchResult.Matches {
-				if m.Confidence > 0.5 { // 鍙繑鍥炵疆淇″害澶т簬0.5鐨?
-					p := h.configMgr.GetProcessor(m.ProcessorID)
-					if p != nil {
-						candidates = append(candidates, model.ProcessorCandidate{
-							ID:         m.ProcessorID,
-							Name:       p.Name,
-							Confidence: m.Confidence,
-						})
-					}
-				}
-			}
-			return &model.CommandResponse{
-				Success:    false,
-				Message:    "鎮ㄧ殑鎸囦护鍙兘瀵瑰簲澶氫釜鍔熻兘锛岃閫夋嫨鎴栨洿鏄庣‘鍦版弿杩?,
-				TraceID:    traceID,
-				Candidates: candidates,
-			}
-		}
-	}
+	// 取置信度最高的匹配
+	bestMatch := matchResult.Matches[0]
+	fmt.Printf("[%s] 匹配处理器: %s (置信度: %.2f)\n", traceID, bestMatch.ProcessorID, bestMatch.Confidence)
 
-	// 3. 鑾峰彇鍖归厤鐨勫鐞嗗櫒
-	processor := h.configMgr.GetProcessor(topMatch.ProcessorID)
+	// 获取处理器详情
+	processor := h.configMgr.GetProcessor(bestMatch.ProcessorID)
 	if processor == nil {
-		return &model.CommandResponse{
-			Success: false,
-			Message: "澶勭悊鍣ㄤ笉瀛樺湪: " + topMatch.ProcessorID,
-			TraceID: traceID,
-		}
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "处理器配置不存在"})
+		return
 	}
 
-	// 4. 浣跨敤LLM鎻愬彇鍙傛暟
-	paramResult, err := h.llmClient.ExtractParameters(ctx, msg.Text, *processor)
+	// 2. LLM 参数提取
+	paramResult, err := h.llmClient.ExtractParameters(ctx, msg.Content, *processor)
 	if err != nil {
-		return &model.CommandResponse{
-			Success:     false,
-			Message:     "鍙傛暟鎻愬彇澶辫触: " + err.Error(),
-			TraceID:     traceID,
-			ProcessorID: processor.ID,
-		}
+		fmt.Printf("[%s] 参数提取失败: %v\n", traceID, err)
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "参数解析服务异常"})
+		return
 	}
 
 	if !paramResult.Success {
-		return &model.CommandResponse{
-			Success:     false,
-			Message:     paramResult.Message,
-			TraceID:     traceID,
-			ProcessorID: processor.ID,
-		}
+		c.JSON(http.StatusOK, gin.H{
+			"message": fmt.Sprintf("指令不完整: %s", paramResult.Message),
+			"missing_params": paramResult.MissingRequired,
+			"trace_id": traceID,
+		})
+		return
 	}
 
-	// 5. 鏋勯€燢afka璇锋眰
-	kafkaReq := &model.KafkaRequest{
-		TraceID:       traceID,
-		Timestamp:     time.Now(),
-		ProcessorID:   processor.ID,
-		Parameters:    paramResult.Parameters,
-		OriginalText:  msg.Text,
-		Channel:       msg.Channel,
-		ChannelUserID: msg.ChannelUserID,
-	}
+	fmt.Printf("[%s] 提取参数: %v\n", traceID, paramResult.Parameters)
 
-	// 6. 鍙戦€佸埌Kafka骞剁瓑寰呭搷搴?
+	// 3. 发送请求到Kafka (如果有Kafka客户端)
 	if h.kafkaClient == nil {
-		// Kafka鏈厤缃紝杩斿洖妯℃嫙鍝嶅簲锛堢敤浜庢祴璇曪級
-		return &model.CommandResponse{
-			Success:     true,
-			Message:     "鎸囦护宸茶瘑鍒紙Kafka鏈厤缃紝鏃犳硶鍙戦€佸埌澶勭悊鍣級",
-			TraceID:     traceID,
-			ProcessorID: processor.ID,
-			Data: map[string]interface{}{
-				"parameters": paramResult.Parameters,
-			},
-		}
+		// 无Kafka模式，直接返回模拟成功
+		c.JSON(http.StatusOK, gin.H{
+			"message": fmt.Sprintf("已识别指令：使用 [%s] 执行操作，参数：%v (演示模式，未发送到后端)", 
+				processor.Name, paramResult.Parameters),
+			"processor": processor.Name,
+			"parameters": paramResult.Parameters,
+			"trace_id": traceID,
+		})
+		return
 	}
 
-	kafkaResp, err := h.kafkaClient.SendAndWait(kafkaReq)
-	if err != nil {
-		return &model.CommandResponse{
-			Success:     false,
-			Message:     "绛夊緟澶勭悊鍣ㄥ搷搴旇秴鏃舵垨澶辫触: " + err.Error(),
-			TraceID:     traceID,
-			ProcessorID: processor.ID,
-		}
-	}
-
-	// 7. 杩斿洖澶勭悊缁撴灉
-	return &model.CommandResponse{
-		Success:     kafkaResp.Success,
-		Message:     kafkaResp.Message,
+	kafkaReq := &model.KafkaRequest{
 		TraceID:     traceID,
 		ProcessorID: processor.ID,
-		Data:        kafkaResp.Data,
+		Parameters:  paramResult.Parameters,
+		RawMessage:  *msg,
+		CreatedAt:   time.Now(),
 	}
+
+	resp, err := h.kafkaClient.SendAndWait(kafkaReq)
+	if err != nil {
+		fmt.Printf("[%s] 后端处理超时或失败: %v\n", traceID, err)
+		c.JSON(http.StatusGatewayTimeout, gin.H{
+			"error": "后端服务响应超时",
+			"trace_id": traceID,
+		})
+		return
+	}
+
+	// 4. 返回结果
+	if !resp.Success {
+		c.JSON(http.StatusOK, gin.H{
+			"message": fmt.Sprintf("执行失败: %s", resp.Error),
+			"trace_id": traceID,
+		})
+		return
+	}
+
+	// 如果Result是字符串，直接显示，如果是结构体，序列化
+	msgResult := "操作成功"
+	if resultStr, ok := resp.Result.(string); ok {
+		msgResult = resultStr
+	} else {
+		bytes, _ := json.Marshal(resp.Result)
+		msgResult = string(bytes)
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": msgResult,
+		"data": resp.Result,
+		"trace_id": traceID,
+	})
 }

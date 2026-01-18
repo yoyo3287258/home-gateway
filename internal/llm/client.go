@@ -13,7 +13,7 @@ import (
 	"github.com/yoyo3287258/home-gateway/internal/config"
 )
 
-// Client LLM API瀹㈡埛绔?
+// Client LLM API客户端
 type Client struct {
 	baseURL    string
 	apiKey     string
@@ -22,7 +22,7 @@ type Client struct {
 	maxRetries int
 }
 
-// NewClient 鍒涘缓LLM瀹㈡埛绔?
+// NewClient 创建LLM客户端
 func NewClient(cfg *config.LLMConfig) *Client {
 	return &Client{
 		baseURL: strings.TrimSuffix(cfg.BaseURL, "/"),
@@ -35,13 +35,13 @@ func NewClient(cfg *config.LLMConfig) *Client {
 	}
 }
 
-// ChatMessage 瀵硅瘽娑堟伅
+// ChatMessage 对话消息
 type ChatMessage struct {
 	Role    string `json:"role"`    // system, user, assistant
-	Content string `json:"content"` // 娑堟伅鍐呭
+	Content string `json:"content"` // 消息内容
 }
 
-// ChatRequest OpenAI鍏煎鐨勫璇濊姹?
+// ChatRequest OpenAI兼容的对话请求
 type ChatRequest struct {
 	Model       string        `json:"model"`
 	Messages    []ChatMessage `json:"messages"`
@@ -49,7 +49,7 @@ type ChatRequest struct {
 	MaxTokens   int           `json:"max_tokens,omitempty"`
 }
 
-// ChatResponse OpenAI鍏煎鐨勫璇濆搷搴?
+// ChatResponse OpenAI兼容的对话响应
 type ChatResponse struct {
 	ID      string `json:"id"`
 	Object  string `json:"object"`
@@ -75,18 +75,18 @@ type ChatResponse struct {
 	} `json:"error,omitempty"`
 }
 
-// Chat 鍙戦€佸璇濊姹?
+// Chat 发送对话请求
 func (c *Client) Chat(ctx context.Context, messages []ChatMessage) (string, error) {
 	req := ChatRequest{
 		Model:       c.model,
 		Messages:    messages,
-		Temperature: 0.3, // 杈冧綆鐨勬俯搴︼紝浣胯緭鍑烘洿纭畾
+		Temperature: 0.3, // 较低的温度，使输出更确定
 	}
 
 	var lastErr error
 	for i := 0; i <= c.maxRetries; i++ {
 		if i > 0 {
-			// 閲嶈瘯鍓嶇瓑寰?
+			// 重试前等待
 			time.Sleep(time.Duration(i) * 500 * time.Millisecond)
 		}
 
@@ -97,19 +97,19 @@ func (c *Client) Chat(ctx context.Context, messages []ChatMessage) (string, erro
 		lastErr = err
 	}
 
-	return "", fmt.Errorf("LLM璇锋眰澶辫触锛堝凡閲嶈瘯%d娆★級: %w", c.maxRetries, lastErr)
+	return "", fmt.Errorf("LLM请求失败（已重试%d次）: %w", c.maxRetries, lastErr)
 }
 
-// doRequest 鎵цHTTP璇锋眰
+// doRequest 执行HTTP请求
 func (c *Client) doRequest(ctx context.Context, req ChatRequest) (string, error) {
 	body, err := json.Marshal(req)
 	if err != nil {
-		return "", fmt.Errorf("搴忓垪鍖栬姹傚け璐? %w", err)
+		return "", fmt.Errorf("序列化请求失败: %w", err)
 	}
 
 	httpReq, err := http.NewRequestWithContext(ctx, "POST", c.baseURL+"/chat/completions", bytes.NewReader(body))
 	if err != nil {
-		return "", fmt.Errorf("鍒涘缓璇锋眰澶辫触: %w", err)
+		return "", fmt.Errorf("创建请求失败: %w", err)
 	}
 
 	httpReq.Header.Set("Content-Type", "application/json")
@@ -117,58 +117,58 @@ func (c *Client) doRequest(ctx context.Context, req ChatRequest) (string, error)
 
 	resp, err := c.httpClient.Do(httpReq)
 	if err != nil {
-		return "", fmt.Errorf("鍙戦€佽姹傚け璐? %w", err)
+		return "", fmt.Errorf("发送请求失败: %w", err)
 	}
 	defer resp.Body.Close()
 
 	respBody, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return "", fmt.Errorf("璇诲彇鍝嶅簲澶辫触: %w", err)
+		return "", fmt.Errorf("读取响应失败: %w", err)
 	}
 
 	var chatResp ChatResponse
 	if err := json.Unmarshal(respBody, &chatResp); err != nil {
-		return "", fmt.Errorf("瑙ｆ瀽鍝嶅簲澶辫触: %w, 鍘熷鍝嶅簲: %s", err, string(respBody))
+		return "", fmt.Errorf("解析响应失败: %w, 原始响应: %s", err, string(respBody))
 	}
 
 	if chatResp.Error != nil {
-		return "", fmt.Errorf("LLM API閿欒: %s (type: %s, code: %s)",
+		return "", fmt.Errorf("LLM API错误: %s (type: %s, code: %s)",
 			chatResp.Error.Message, chatResp.Error.Type, chatResp.Error.Code)
 	}
 
 	if len(chatResp.Choices) == 0 {
-		return "", fmt.Errorf("LLM杩斿洖绌哄搷搴?)
+		return "", fmt.Errorf("LLM返回空响应")
 	}
 
 	return chatResp.Choices[0].Message.Content, nil
 }
 
-// ChatWithJSON 鍙戦€佸璇濊姹傚苟瑙ｆ瀽JSON鍝嶅簲
+// ChatWithJSON 发送对话请求并解析JSON响应
 func (c *Client) ChatWithJSON(ctx context.Context, messages []ChatMessage, result interface{}) error {
 	content, err := c.Chat(ctx, messages)
 	if err != nil {
 		return err
 	}
 
-	// 灏濊瘯鎻愬彇JSON锛圠LM鍙兘浼氬湪JSON鍓嶅悗娣诲姞棰濆鏂囨湰锛?
+	// 尝试提取JSON（LLM可能会在JSON前后添加额外文本）
 	jsonStr := extractJSON(content)
 	if jsonStr == "" {
-		return fmt.Errorf("LLM鍝嶅簲涓湭鎵惧埌鏈夋晥JSON: %s", content)
+		return fmt.Errorf("LLM响应中未找到有效JSON: %s", content)
 	}
 
 	if err := json.Unmarshal([]byte(jsonStr), result); err != nil {
-		return fmt.Errorf("瑙ｆ瀽LLM JSON鍝嶅簲澶辫触: %w, 鍐呭: %s", err, jsonStr)
+		return fmt.Errorf("解析LLM JSON响应失败: %w, 内容: %s", err, jsonStr)
 	}
 
 	return nil
 }
 
-// extractJSON 浠庢枃鏈腑鎻愬彇JSON
+// extractJSON 从文本中提取JSON
 func extractJSON(s string) string {
-	// 灏濊瘯鎵惧埌JSON瀵硅薄
+	// 尝试找到JSON对象
 	start := strings.Index(s, "{")
 	if start == -1 {
-		// 灏濊瘯鎵綣SON鏁扮粍
+		// 尝试找JSON数组
 		start = strings.Index(s, "[")
 		if start == -1 {
 			return ""

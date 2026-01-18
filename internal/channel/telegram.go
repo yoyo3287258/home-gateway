@@ -11,24 +11,24 @@ import (
 	"github.com/yoyo3287258/home-gateway/internal/model"
 )
 
-// TelegramParser Telegram娑堟伅瑙ｆ瀽鍣?
+// TelegramParser Telegram消息解析器
 type TelegramParser struct {
-	// WebhookSecret 鐢ㄤ簬楠岃瘉Webhook璇锋眰鐨勫瘑閽?
+	// WebhookSecret 用于验证Webhook请求的密钥
 	WebhookSecret string
 }
 
-// Name 杩斿洖娓犻亾鍚嶇О
+// Name 返回渠道名称
 func (p *TelegramParser) Name() string {
 	return "telegram"
 }
 
-// TelegramUpdate Telegram Webhook鏇存柊娑堟伅
+// TelegramUpdate Telegram Webhook更新消息
 type TelegramUpdate struct {
 	UpdateID int              `json:"update_id"`
 	Message  *TelegramMessage `json:"message,omitempty"`
 }
 
-// TelegramMessage Telegram娑堟伅
+// TelegramMessage Telegram消息
 type TelegramMessage struct {
 	MessageID int           `json:"message_id"`
 	From      *TelegramUser `json:"from,omitempty"`
@@ -37,7 +37,7 @@ type TelegramMessage struct {
 	Text      string        `json:"text,omitempty"`
 }
 
-// TelegramUser Telegram鐢ㄦ埛
+// TelegramUser Telegram用户
 type TelegramUser struct {
 	ID           int64  `json:"id"`
 	IsBot        bool   `json:"is_bot"`
@@ -47,7 +47,7 @@ type TelegramUser struct {
 	LanguageCode string `json:"language_code,omitempty"`
 }
 
-// TelegramChat Telegram浼氳瘽
+// TelegramChat Telegram会话
 type TelegramChat struct {
 	ID        int64  `json:"id"`
 	Type      string `json:"type"` // private, group, supergroup, channel
@@ -57,33 +57,33 @@ type TelegramChat struct {
 	LastName  string `json:"last_name,omitempty"`
 }
 
-// Parse 瑙ｆ瀽Telegram娑堟伅
+// Parse 解析Telegram消息
 func (p *TelegramParser) Parse(rawData []byte) (*model.UnifiedMessage, error) {
 	var update TelegramUpdate
 	if err := json.Unmarshal(rawData, &update); err != nil {
-		return nil, fmt.Errorf("瑙ｆ瀽Telegram娑堟伅澶辫触: %w", err)
+		return nil, fmt.Errorf("解析Telegram消息失败: %w", err)
 	}
 
 	if update.Message == nil {
-		return nil, fmt.Errorf("涓嶆敮鎸佺殑Telegram鏇存柊绫诲瀷锛堥潪娑堟伅锛?)
+		return nil, fmt.Errorf("不支持的Telegram更新类型（非消息）")
 	}
 
 	if update.Message.Text == "" {
-		return nil, fmt.Errorf("绌烘秷鎭垨闈炴枃鏈秷鎭?)
+		return nil, fmt.Errorf("空消息或非文本消息")
 	}
 
 	msg := update.Message
 	
-	// 鎻愬彇鐢ㄦ埛ID
+	// 提取用户ID
 	var userID string
 	if msg.From != nil {
 		userID = strconv.FormatInt(msg.From.ID, 10)
 	}
 
-	// 鎻愬彇浼氳瘽ID
+	// 提取会话ID
 	chatID := strconv.FormatInt(msg.Chat.ID, 10)
 
-	// 鏋勫缓鍘熷鏁版嵁
+	// 构建原始数据
 	rawMap := map[string]interface{}{
 		"update_id":  update.UpdateID,
 		"message_id": msg.MessageID,
@@ -97,15 +97,15 @@ func (p *TelegramParser) Parse(rawData []byte) (*model.UnifiedMessage, error) {
 	return NewUnifiedMessage(msg.Text, "telegram", userID, chatID, rawMap), nil
 }
 
-// Validate 楠岃瘉Telegram Webhook璇锋眰
-// 浣跨敤 X-Telegram-Bot-Api-Secret-Token 澶磋繘琛岄獙璇?
+// Validate 验证Telegram Webhook请求
+// 使用 X-Telegram-Bot-Api-Secret-Token 头进行验证
 func (p *TelegramParser) Validate(headers map[string]string, body []byte) bool {
 	if p.WebhookSecret == "" {
-		// 鏈厤缃瘑閽ワ紝璺宠繃楠岃瘉
+		// 未配置密钥，跳过验证
 		return true
 	}
 
-	// Telegram 浣跨敤 X-Telegram-Bot-Api-Secret-Token 澶?
+	// Telegram 使用 X-Telegram-Bot-Api-Secret-Token 头
 	secretToken := headers["X-Telegram-Bot-Api-Secret-Token"]
 	if secretToken == "" {
 		secretToken = headers["x-telegram-bot-api-secret-token"]
@@ -114,7 +114,7 @@ func (p *TelegramParser) Validate(headers map[string]string, body []byte) bool {
 	return secretToken == p.WebhookSecret
 }
 
-// CalculateTelegramSecretTokenHash 璁＄畻Telegram瀵嗛挜Hash锛堢敤浜庤缃甒ebhook鏃讹級
+// CalculateTelegramSecretTokenHash 计算Telegram密钥Hash（用于设置Webhook时）
 func CalculateTelegramSecretTokenHash(botToken, data string) string {
 	h := hmac.New(sha256.New, []byte(botToken))
 	h.Write([]byte(data))
