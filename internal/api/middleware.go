@@ -12,17 +12,17 @@ import (
 	"github.com/yoyo3287258/home-gateway/internal/config"
 )
 
-// LoggerMiddleware 鏃ュ織涓棿浠?
+// LoggerMiddleware 日志中间件
 func LoggerMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		start := time.Now()
 		path := c.Request.URL.Path
 		raw := c.Request.URL.RawQuery
 
-		// 澶勭悊璇锋眰
+		// 处理请求
 		c.Next()
 
-		// 璁板綍鏃ュ織
+		// 记录日志
 		latency := time.Since(start)
 		clientIP := c.ClientIP()
 		method := c.Request.Method
@@ -32,17 +32,17 @@ func LoggerMiddleware() gin.HandlerFunc {
 			path = path + "?" + raw
 		}
 
-		// 鏍规嵁鐘舵€佺爜璁剧疆棰滆壊
+		// 根据状态码设置颜色
 		var statusColor string
 		switch {
 		case statusCode >= 500:
-			statusColor = "\033[31m" // 绾㈣壊
+			statusColor = "\033[31m" // 红色
 		case statusCode >= 400:
-			statusColor = "\033[33m" // 榛勮壊
+			statusColor = "\033[33m" // 黄色
 		case statusCode >= 300:
-			statusColor = "\033[36m" // 闈掕壊
+			statusColor = "\033[36m" // 青色
 		default:
-			statusColor = "\033[32m" // 缁胯壊
+			statusColor = "\033[32m" // 绿色
 		}
 		resetColor := "\033[0m"
 
@@ -59,7 +59,7 @@ func LoggerMiddleware() gin.HandlerFunc {
 	}
 }
 
-// CORSMiddleware CORS璺ㄥ煙涓棿浠?
+// CORSMiddleware CORS跨域中间件
 func CORSMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		c.Header("Access-Control-Allow-Origin", "*")
@@ -76,16 +76,16 @@ func CORSMiddleware() gin.HandlerFunc {
 	}
 }
 
-// TraceIDMiddleware TraceID涓棿浠?
+// TraceIDMiddleware TraceID中间件
 func TraceIDMiddleware() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// 浠庤姹傚ご鑾峰彇TraceID锛屽鏋滄病鏈夊垯鐢熸垚
+		// 从请求头获取TraceID，如果没有则生成
 		traceID := c.GetHeader("X-Trace-ID")
 		if traceID == "" {
 			traceID = generateTraceID()
 		}
 
-		// 璁剧疆鍒癈ontext鍜屽搷搴斿ご
+		// 设置到Context和响应头
 		c.Set("trace_id", traceID)
 		c.Header("X-Trace-ID", traceID)
 
@@ -93,38 +93,38 @@ func TraceIDMiddleware() gin.HandlerFunc {
 	}
 }
 
-// generateTraceID 鐢熸垚TraceID
+// generateTraceID 生成TraceID
 func generateTraceID() string {
 	return fmt.Sprintf("%d", time.Now().UnixNano())
 }
 
-// APITokenAuthMiddleware API Token璁よ瘉涓棿浠?
-// 楠岃瘉璇锋眰澶翠腑鐨?Authorization: Bearer <token>
+// APITokenAuthMiddleware API Token认证中间件
+// 验证请求头中的 Authorization: Bearer <token>
 func APITokenAuthMiddleware(securityCfg *config.SecurityConfig) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		// 濡傛灉娌℃湁閰嶇疆token锛岃烦杩囬獙璇侊紙寮€鍙戞ā寮忥級
+		// 如果没有配置token，跳过验证（开发模式）
 		if securityCfg.APIToken == "" {
 			c.Next()
 			return
 		}
 
-		// 鑾峰彇Authorization澶?
+		// 获取Authorization头
 		authHeader := c.GetHeader("Authorization")
 		if authHeader == "" {
 			c.JSON(http.StatusUnauthorized, gin.H{
 				"success": false,
-				"message": "缂哄皯Authorization澶?,
+				"message": "缺少Authorization头",
 			})
 			c.Abort()
 			return
 		}
 
-		// 瑙ｆ瀽Bearer token
+		// 解析Bearer token
 		parts := strings.SplitN(authHeader, " ", 2)
 		if len(parts) != 2 || strings.ToLower(parts[0]) != "bearer" {
 			c.JSON(http.StatusUnauthorized, gin.H{
 				"success": false,
-				"message": "Authorization鏍煎紡閿欒锛屽簲涓? Bearer <token>",
+				"message": "Authorization格式错误，应为: Bearer <token>",
 			})
 			c.Abort()
 			return
@@ -134,7 +134,7 @@ func APITokenAuthMiddleware(securityCfg *config.SecurityConfig) gin.HandlerFunc 
 		if token != securityCfg.APIToken {
 			c.JSON(http.StatusUnauthorized, gin.H{
 				"success": false,
-				"message": "鏃犳晥鐨凙PI Token",
+				"message": "无效的API Token",
 			})
 			c.Abort()
 			return
@@ -144,9 +144,9 @@ func APITokenAuthMiddleware(securityCfg *config.SecurityConfig) gin.HandlerFunc 
 	}
 }
 
-// IPWhitelistMiddleware IP鐧藉悕鍗曚腑闂翠欢
+// IPWhitelistMiddleware IP白名单中间件
 func IPWhitelistMiddleware(securityCfg *config.SecurityConfig) gin.HandlerFunc {
-	// 棰勮В鏋怌IDR
+	// 预解析CIDR
 	var networks []*net.IPNet
 	var singleIPs []net.IP
 	
@@ -165,7 +165,7 @@ func IPWhitelistMiddleware(securityCfg *config.SecurityConfig) gin.HandlerFunc {
 	}
 
 	return func(c *gin.Context) {
-		// 濡傛灉娌℃湁閰嶇疆鐧藉悕鍗曪紝璺宠繃楠岃瘉
+		// 如果没有配置白名单，跳过验证
 		if len(securityCfg.IPWhitelist) == 0 {
 			c.Next()
 			return
@@ -175,16 +175,16 @@ func IPWhitelistMiddleware(securityCfg *config.SecurityConfig) gin.HandlerFunc {
 		if clientIP == nil {
 			c.JSON(http.StatusForbidden, gin.H{
 				"success": false,
-				"message": "鏃犳硶瑙ｆ瀽瀹㈡埛绔疘P",
+				"message": "无法解析客户端IP",
 			})
 			c.Abort()
 			return
 		}
 
-		// 妫€鏌ユ槸鍚﹀湪鐧藉悕鍗曚腑
+		// 检查是否在白名单中
 		allowed := false
 		
-		// 妫€鏌ュ崟涓狪P
+		// 检查单个IP
 		for _, ip := range singleIPs {
 			if ip.Equal(clientIP) {
 				allowed = true
@@ -192,7 +192,7 @@ func IPWhitelistMiddleware(securityCfg *config.SecurityConfig) gin.HandlerFunc {
 			}
 		}
 
-		// 妫€鏌IDR
+		// 检查CIDR
 		if !allowed {
 			for _, network := range networks {
 				if network.Contains(clientIP) {
@@ -205,7 +205,7 @@ func IPWhitelistMiddleware(securityCfg *config.SecurityConfig) gin.HandlerFunc {
 		if !allowed {
 			c.JSON(http.StatusForbidden, gin.H{
 				"success": false,
-				"message": fmt.Sprintf("IP %s 涓嶅湪鐧藉悕鍗曚腑", c.ClientIP()),
+				"message": fmt.Sprintf("IP %s 不在白名单中", c.ClientIP()),
 			})
 			c.Abort()
 			return
@@ -215,7 +215,7 @@ func IPWhitelistMiddleware(securityCfg *config.SecurityConfig) gin.HandlerFunc {
 	}
 }
 
-// RateLimiter 绠€鍗曠殑璇锋眰闄愰€熷櫒
+// RateLimiter 简单的请求限速器
 type RateLimiter struct {
 	requests map[string][]time.Time
 	mu       sync.Mutex
@@ -223,7 +223,7 @@ type RateLimiter struct {
 	window   time.Duration
 }
 
-// NewRateLimiter 鍒涘缓闄愰€熷櫒
+// NewRateLimiter 创建限速器
 func NewRateLimiter(limitPerMinute int) *RateLimiter {
 	return &RateLimiter{
 		requests: make(map[string][]time.Time),
@@ -232,7 +232,7 @@ func NewRateLimiter(limitPerMinute int) *RateLimiter {
 	}
 }
 
-// Allow 妫€鏌ユ槸鍚﹀厑璁歌姹?
+// Allow 检查是否允许请求
 func (r *RateLimiter) Allow(key string) bool {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -240,7 +240,7 @@ func (r *RateLimiter) Allow(key string) bool {
 	now := time.Now()
 	windowStart := now.Add(-r.window)
 
-	// 娓呯悊杩囨湡璇锋眰
+	// 清理过期请求
 	if times, ok := r.requests[key]; ok {
 		var valid []time.Time
 		for _, t := range times {
@@ -251,17 +251,17 @@ func (r *RateLimiter) Allow(key string) bool {
 		r.requests[key] = valid
 	}
 
-	// 妫€鏌ユ槸鍚﹁秴杩囬檺鍒?
+	// 检查是否超过限制
 	if len(r.requests[key]) >= r.limit {
 		return false
 	}
 
-	// 璁板綍璇锋眰
+	// 记录请求
 	r.requests[key] = append(r.requests[key], now)
 	return true
 }
 
-// RateLimitMiddleware 璇锋眰闄愰€熶腑闂翠欢
+// RateLimitMiddleware 请求限速中间件
 func RateLimitMiddleware(securityCfg *config.SecurityConfig) gin.HandlerFunc {
 	if securityCfg.RateLimitPerMinute <= 0 {
 		return func(c *gin.Context) { c.Next() }
@@ -274,7 +274,7 @@ func RateLimitMiddleware(securityCfg *config.SecurityConfig) gin.HandlerFunc {
 		if !limiter.Allow(key) {
 			c.JSON(http.StatusTooManyRequests, gin.H{
 				"success": false,
-				"message": fmt.Sprintf("璇锋眰杩囦簬棰戠箒锛岄檺鍒朵负姣忓垎閽?d娆?, securityCfg.RateLimitPerMinute),
+				"message": fmt.Sprintf("请求过于频繁，限制为每分钟%d次", securityCfg.RateLimitPerMinute),
 			})
 			c.Abort()
 			return

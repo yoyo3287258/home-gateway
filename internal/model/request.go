@@ -2,50 +2,41 @@ package model
 
 import "time"
 
-// KafkaRequest 鍙戦€佺粰澶勭悊鍣ㄧ殑Kafka璇锋眰娑堟伅
+// KafkaRequest 发送到后端处理器的请求
 type KafkaRequest struct {
-	// TraceID 璋冪敤娴佹按鍙凤紝鐢ㄤ簬杩借釜璇锋眰-鍝嶅簲
+	// TraceID 请求追踪ID
 	TraceID string `json:"trace_id"`
 
-	// Timestamp 璇锋眰鏃堕棿鎴?
-	Timestamp time.Time `json:"timestamp"`
-
-	// ProcessorID 鐩爣澶勭悊鍣↖D
+	// ProcessorID 目标处理器ID
 	ProcessorID string `json:"processor_id"`
 
-	// Parameters 鎻愬彇鐨勫弬鏁?
+	// Parameters 提取的参数
 	Parameters map[string]interface{} `json:"parameters"`
 
-	// OriginalText 鐢ㄦ埛鍘熷杈撳叆鏂囨湰
-	OriginalText string `json:"original_text"`
+	// RawMessage 原始消息上下文
+	RawMessage UnifiedMessage `json:"raw_message"`
 
-	// Channel 娑堟伅鏉ユ簮娓犻亾
-	Channel string `json:"channel"`
-
-	// ChannelUserID 娓犻亾鐢ㄦ埛ID锛堝彲閫夛級
-	ChannelUserID string `json:"channel_user_id,omitempty"`
+	// CreatedAt 创建时间
+	CreatedAt time.Time `json:"created_at"`
 }
 
-// KafkaResponse 澶勭悊鍣ㄨ繑鍥炵殑Kafka鍝嶅簲娑堟伅
+// KafkaResponse 后端处理器返回的响应
 type KafkaResponse struct {
-	// TraceID 璋冪敤娴佹按鍙凤紝涓庤姹傚搴?
+	// TraceID 请求追踪ID
 	TraceID string `json:"trace_id"`
 
-	// Timestamp 鍝嶅簲鏃堕棿鎴?
-	Timestamp time.Time `json:"timestamp"`
-
-	// ProcessorID 澶勭悊璇ヨ姹傜殑澶勭悊鍣↖D
+	// ProcessorID 来源处理器ID
 	ProcessorID string `json:"processor_id"`
 
-	// Success 澶勭悊鏄惁鎴愬姛
+	// Success 是否执行成功
 	Success bool `json:"success"`
 
-	// Message 杩斿洖缁欑敤鎴风殑娑堟伅
-	Message string `json:"message"`
+	// Result 执行结果（可以是文本或JSON对象）
+	Result interface{} `json:"result,omitempty"`
 
-	// Data 棰濆鏁版嵁锛堝彲閫夛級
-	Data map[string]interface{} `json:"data,omitempty"`
-
-	// Error 閿欒淇℃伅锛堜粎褰揝uccess涓篺alse鏃讹級
+	// Error 错误信息（如果Success为false）
 	Error string `json:"error,omitempty"`
+
+	// ProcessedAt 处理完成时间
+	ProcessedAt time.Time `json:"processed_at"`
 }
